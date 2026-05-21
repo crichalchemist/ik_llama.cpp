@@ -12,6 +12,7 @@ This repository is a fork of [llama.cpp](https://github.com/ggerganov/llama.cpp)
 >[!NOTE]
 >The only fully functional and performant compute backends are CPU (`AVX2` or better, `ARM_NEON` or better) and CUDA (Turing or newer). 
 >Please do not enter issues related to ROCm, Vulkan, Metal, old Nvidia GPUs, `AVX` CPUs, etc. They will not get resolved unless you roll up your sleeves and help bring your favorite backend up to speed. With the current regular contributors this project simply does not have the bandwidth to work on all backends available in `llama.cpp`.
+>If you want to contribute CPU backend improvements, follow [`docs/development/cpu_backend_contribution_workflow.md`](docs/development/cpu_backend_contribution_workflow.md).
  
 >[!IMPORTANT]
 >Do not use quantized models from Unsloth that have `_XL` in their name. These are likely to not work with `ik_llama.cpp`.
