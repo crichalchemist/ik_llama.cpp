@@ -16,6 +16,18 @@ Examples:
 EOF
 }
 
+get_cpu_cores() {
+    if command -v nproc >/dev/null 2>&1; then
+        nproc
+        return
+    fi
+    if command -v sysctl >/dev/null 2>&1; then
+        sysctl -n hw.ncpu
+        return
+    fi
+    echo 1
+}
+
 model=""
 build_dir="$repo_root/build"
 threads=""
@@ -85,14 +97,14 @@ fi
 bench_bin="$build_dir/bin/llama-bench"
 if [[ ! -x "$bench_bin" ]]; then
     echo "llama-bench not found at: $bench_bin" >&2
-    echo "Build first: cmake -B $build_dir -DGGML_NATIVE=ON && cmake --build $build_dir --config Release -j$(nproc)" >&2
+    echo "Build first: cmake -B $build_dir -DGGML_NATIVE=ON && cmake --build $build_dir --config Release -j$(get_cpu_cores)" >&2
     exit 1
 fi
 
 out_dir="$repo_root/tmp/cpu-bench/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$out_dir"
 
-cpu_cores="$(nproc)"
+cpu_cores="$(get_cpu_cores)"
 if [[ -z "$threads" ]]; then
     threads="$cpu_cores"
 fi
