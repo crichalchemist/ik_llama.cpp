@@ -144,7 +144,7 @@ if [[ "$run_callgrind" -eq 1 ]]; then
         echo "callgrind requested but valgrind is not installed." >&2
         exit 1
     fi
-    valgrind --tool=callgrind --callgrind-out-file="$out_dir/callgrind.out" "$bench_bin" "${bench_args[@]}" >"$out_dir/callgrind.log" 2>&1
+    valgrind --tool=callgrind --callgrind-out-file="$out_dir/callgrind.out" "$bench_bin" "${bench_args[@]}" 2>&1 | tee "$out_dir/callgrind.log"
 fi
 
 echo "Done."

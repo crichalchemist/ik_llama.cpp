@@ -18,7 +18,7 @@ Use these files as the primary map:
 
 Support policy anchor:
 
-- `README.md` (lines 13-14)
+- `README.md` (backend support policy note near the top of the file)
 
 ## 2) Define explicit optimization targets
 
