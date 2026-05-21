@@ -101,8 +101,9 @@ if [[ ! -x "$bench_bin" ]]; then
     exit 1
 fi
 
-out_dir="$repo_root/tmp/cpu-bench/$(date +%Y%m%d-%H%M%S-%N)"
-mkdir -p "$out_dir"
+out_parent="$repo_root/tmp/cpu-bench"
+mkdir -p "$out_parent"
+out_dir="$(mktemp -d "$out_parent/run-XXXXXX")"
 
 cpu_cores="$(get_cpu_cores)"
 if [[ -z "$threads" ]]; then
@@ -130,7 +131,7 @@ if [[ "$run_perf" -eq 1 ]]; then
         echo "perf requested but not installed." >&2
         exit 1
     fi
-    perf record -o "$out_dir/perf.data" -g -- "$bench_bin" "${bench_args[@]}" >"$out_dir/perf-record.log" 2>&1
+    perf record -o "$out_dir/perf.data" -g -- "$bench_bin" "${bench_args[@]}" 2>&1 | tee "$out_dir/perf-record.log"
     if [[ ! -f "$out_dir/perf.data" ]]; then
         echo "perf did not produce $out_dir/perf.data" >&2
         exit 1
