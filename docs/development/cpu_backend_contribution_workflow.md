@@ -72,7 +72,7 @@ Suggested commands:
 ```bash
 cd <repo-root>
 cmake -B build -DGGML_NATIVE=ON
-cmake --build build --config Release -j"$(nproc)"
+cmake --build build --config Release -j
 cd build && ctest --output-on-failure
 ```
 
