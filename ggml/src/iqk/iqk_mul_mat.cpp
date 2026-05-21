@@ -59,6 +59,7 @@ struct chunk_range {
     int count;
 };
 
+// Splits [0, total) into thread chunks. Returns first chunk index and chunk count for thread ith.
 inline chunk_range split_chunk_range(int total, int ith, int nth) {
     if (total <= 0 || nth <= 0 || ith < 0) {
         return {0, 0};

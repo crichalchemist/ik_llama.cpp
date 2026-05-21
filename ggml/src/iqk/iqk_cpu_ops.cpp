@@ -36,6 +36,7 @@ struct work_range {
     int last;
 };
 
+// Splits [0, total) into thread ranges. Returns [first, last) for thread ith.
 inline work_range split_work_range(int total, int ith, int nth) {
     if (total <= 0 || nth <= 0 || ith < 0) {
         return {0, 0};
