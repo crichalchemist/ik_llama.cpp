@@ -73,7 +73,7 @@ if [[ -z "$model" ]]; then
 fi
 
 if [[ "$model" != /* ]]; then
-    echo "--model must be an absolute path." >&2
+    echo "--model must be an absolute path (got: $model)." >&2
     exit 1
 fi
 
@@ -85,7 +85,7 @@ fi
 bench_bin="$build_dir/bin/llama-bench"
 if [[ ! -x "$bench_bin" ]]; then
     echo "llama-bench not found at: $bench_bin" >&2
-    echo "Build first: cmake -B $build_dir -DGGML_NATIVE=ON && cmake --build $build_dir --config Release -j\$(nproc)" >&2
+    echo "Build first: cmake -B $build_dir -DGGML_NATIVE=ON && cmake --build $build_dir --config Release -j$(nproc)" >&2
     exit 1
 fi
 
