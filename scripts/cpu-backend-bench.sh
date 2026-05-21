@@ -2,7 +2,7 @@
 set -euo pipefail
 
 this=$(realpath "$0"); readonly this
-repo_root=$(dirname "$(dirname "$this")"); readonly repo_root
+repo_root=$(realpath "$(dirname "$(dirname "$this")")"); readonly repo_root
 
 usage() {
     cat <<EOF
@@ -101,7 +101,7 @@ if [[ ! -x "$bench_bin" ]]; then
     exit 1
 fi
 
-out_dir="$repo_root/tmp/cpu-bench/$(date +%Y%m%d-%H%M%S)"
+out_dir="$repo_root/tmp/cpu-bench/$(date +%Y%m%d-%H%M%S-%N)"
 mkdir -p "$out_dir"
 
 cpu_cores="$(get_cpu_cores)"
@@ -130,9 +130,12 @@ if [[ "$run_perf" -eq 1 ]]; then
         echo "perf requested but not installed." >&2
         exit 1
     fi
-    perf record -g -- "$bench_bin" "${bench_args[@]}" >/dev/null 2>&1
-    perf report --stdio > "$out_dir/perf-report.txt"
-    mv perf.data "$out_dir/perf.data"
+    perf record -o "$out_dir/perf.data" -g -- "$bench_bin" "${bench_args[@]}" >"$out_dir/perf-record.log" 2>&1
+    if [[ ! -f "$out_dir/perf.data" ]]; then
+        echo "perf did not produce $out_dir/perf.data" >&2
+        exit 1
+    fi
+    perf report -i "$out_dir/perf.data" --stdio > "$out_dir/perf-report.txt"
 fi
 
 if [[ "$run_callgrind" -eq 1 ]]; then
@@ -140,7 +143,7 @@ if [[ "$run_callgrind" -eq 1 ]]; then
         echo "callgrind requested but valgrind is not installed." >&2
         exit 1
     fi
-    valgrind --tool=callgrind --callgrind-out-file="$out_dir/callgrind.out" "$bench_bin" "${bench_args[@]}" >/dev/null 2>&1
+    valgrind --tool=callgrind --callgrind-out-file="$out_dir/callgrind.out" "$bench_bin" "${bench_args[@]}" >"$out_dir/callgrind.log" 2>&1
 fi
 
 echo "Done."
