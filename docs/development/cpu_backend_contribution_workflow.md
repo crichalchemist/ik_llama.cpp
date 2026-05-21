@@ -7,18 +7,18 @@ This workflow turns the CPU-backend guidance in the main README into a repeatabl
 Use these files as the primary map:
 
 - Core CPU execution path:
-  - `/home/runner/work/ik_llama.cpp/ik_llama.cpp/ggml/src/ggml.c`
+  - `ggml/src/ggml.c`
 - ARM-specific kernels and helpers:
-  - `/home/runner/work/ik_llama.cpp/ik_llama.cpp/ggml/src/ggml-aarch64.c`
+  - `ggml/src/ggml-aarch64.c`
 - Quantized CPU matmul and CPU ops (major hot path):
-  - `/home/runner/work/ik_llama.cpp/ik_llama.cpp/ggml/src/iqk/iqk_mul_mat.cpp`
-  - `/home/runner/work/ik_llama.cpp/ik_llama.cpp/ggml/src/iqk/iqk_gemm_*.cpp`
-  - `/home/runner/work/ik_llama.cpp/ik_llama.cpp/ggml/src/iqk/iqk_cpu_ops.cpp`
-  - `/home/runner/work/ik_llama.cpp/ik_llama.cpp/ggml/src/iqk/iqk_config.h`
+  - `ggml/src/iqk/iqk_mul_mat.cpp`
+  - `ggml/src/iqk/iqk_gemm_*.cpp`
+  - `ggml/src/iqk/iqk_cpu_ops.cpp`
+  - `ggml/src/iqk/iqk_config.h`
 
 Support policy anchor:
 
-- `/home/runner/work/ik_llama.cpp/ik_llama.cpp/README.md` (lines 13-14)
+- `README.md` (lines 13-14)
 
 ## 2) Define explicit optimization targets
 
@@ -38,7 +38,7 @@ Split every target by architecture:
 Use reproducible CPU-only runs:
 
 ```bash
-cd /home/runner/work/ik_llama.cpp/ik_llama.cpp
+cd <repo-root>
 ./scripts/cpu-backend-bench.sh --model /absolute/path/to/model.gguf
 ```
 
@@ -70,7 +70,7 @@ For each change:
 Suggested commands:
 
 ```bash
-cd /home/runner/work/ik_llama.cpp/ik_llama.cpp
+cd <repo-root>
 cmake -B build -DGGML_NATIVE=ON
 cmake --build build --config Release -j"$(nproc)"
 cd build && ctest --output-on-failure
