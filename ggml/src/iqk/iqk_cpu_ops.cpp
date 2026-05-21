@@ -31,6 +31,24 @@ bool iqk_has_fancy_simd(void) {
 }
 
 namespace {
+struct work_range {
+    int first;
+    int last;
+};
+
+inline work_range split_work_range(int total, int ith, int nth) {
+    if (total <= 0 || nth <= 0 || ith < 0) {
+        return {0, 0};
+    }
+    const int workers = std::min(total, nth);
+    const int npt = (total + workers - 1)/workers;
+    const int first = ith*npt;
+    if (first >= total) {
+        return {total, total};
+    }
+    return {first, std::min(total, first + npt)};
+}
+
 // Playing around with group scores: use sum of probabilities in the group
 inline float group_score(int n_per_group, const float * data) {
     float sum = 0;
@@ -148,12 +166,10 @@ void iqk_sumrows_div(struct ggml_tensor * div, int ith, int nth) {
 
     int ne00  = src->ne[0];
     int nrows = ggml_nrows(src);
-    int npt   = (nrows + nth - 1)/nth;
-    int first = ith*npt;
-    int last  = std::min(first + npt, nrows);
-    if (last < first) return;
+    auto range = split_work_range(nrows, ith, nth);
+    if (range.last <= range.first) return;
 
-    for (int ir = first; ir < last; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         auto values = (const float *)((const char *)src->data + ir*src->nb[1]);
         float sum = 0;
         for (int j = 0; j < ne00; ++j) sum += values[j];
@@ -170,10 +186,8 @@ void iqk_grouped_top_k(ggml_tensor * dst, int ith, int nth) {
     GGML_ASSERT(ggml_nrows(src) == ggml_nrows(dst));
 
     auto nrows = ggml_nrows(src);
-    auto npt   = (nrows + nth - 1)/nth;
-    auto first = npt*ith;
-    auto last  = std::min(first + npt, nrows);
-    if (last <= first) return;
+    auto range = split_work_range(nrows, ith, nth);
+    if (range.last <= range.first) return;
 
     int n_groups     = dst->op_params[0];
     int n_top_groups = dst->op_params[1];
@@ -192,7 +206,7 @@ void iqk_grouped_top_k(ggml_tensor * dst, int ith, int nth) {
 
     auto groups = aux.data() + n_per_group*n_top_groups;
 
-    for (int ir = first; ir < last; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         auto data = (const float *)((const char *)src->data + ir*src->nb[1]);
         auto result = (int32_t *)((char *)dst->data + ir*dst->nb[1]);
         if (ne0 > n_per_group*n_top_groups) {
@@ -232,10 +246,8 @@ void iqk_argsort(ggml_tensor * dst, int ith, int nth) {
     GGML_ASSERT(src->type == GGML_TYPE_F32);
 
     auto nrows = ggml_nrows(src);
-    auto npt   = (nrows + nth - 1)/nth;
-    auto first = npt*ith;
-    auto last  = std::min(first + npt, nrows);
-    if (last <= first) return;
+    auto range = split_work_range(nrows, ith, nth);
+    if (range.last <= range.first) return;
 
     auto order = (ggml_sort_order)dst->op_params[0];
     int nk = dst->op_params[1];
@@ -243,7 +255,7 @@ void iqk_argsort(ggml_tensor * dst, int ith, int nth) {
     int ne00 = src->ne[0];
     auto& aux = get_work_buffer(ne00);
 
-    for (int ir = first; ir < last; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         auto data = (const float *)((const char *)src->data + ir*src->nb[1]);
         for (int j = 0; j < ne00; ++j) aux[j] = {data[j], j};
         if (nk < ne00) {
@@ -271,10 +283,8 @@ void iqk_bailingmoev2_experts(struct ggml_tensor * dst, struct ggml_tensor * top
     auto t_bias   = topk_src->src[1];
 
     auto nrows = ggml_nrows(probs);
-    auto npt   = (nrows + nth - 1)/nth;
-    auto first = npt*ith;
-    auto last  = std::min(first + npt, nrows);
-    if (last <= first) return;
+    auto range = split_work_range(nrows, ith, nth);
+    if (range.last <= range.first) return;
 
     int n_groups     = topk->op_params[0];
     int n_top_groups = topk->op_params[1];
@@ -301,7 +311,7 @@ void iqk_bailingmoev2_experts(struct ggml_tensor * dst, struct ggml_tensor * top
 
     auto bias = (const float *)t_bias->data;
 
-    for (int ir = first; ir < last; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         auto data = (const float *)((const char *)probs->data + ir*probs->nb[1]);
         biased_sigmoid(ne00, data, bias, biased_values, values);
         //for (int j = 0; j < ne00; ++j) values[j] = 1/(1 + expf(-data[j])) + bias[j];
@@ -345,10 +355,8 @@ void iqk_glm45moe_experts(struct ggml_tensor * dst, struct ggml_tensor * topk_vi
     auto t_bias   = topk_src->src[1];
 
     auto nrows = ggml_nrows(probs);
-    auto npt   = (nrows + nth - 1)/nth;
-    auto first = npt*ith;
-    auto last  = std::min(first + npt, nrows);
-    if (last <= first) return;
+    auto range = split_work_range(nrows, ith, nth);
+    if (range.last <= range.first) return;
 
     int ne00 = probs->ne[0];
     int ne0  = topk_view->ne[0];
@@ -366,7 +374,7 @@ void iqk_glm45moe_experts(struct ggml_tensor * dst, struct ggml_tensor * topk_vi
 
     auto bias = (const float *)t_bias->data;
 
-    for (int ir = first; ir < last; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         auto data = (const float *)((const char *)probs->data + ir*probs->nb[1]);
         //biased_sigmoid(ne00, data, bias, biased_values, values);
         biased_sigmoid(ne00, data, bias, biased_values);
@@ -390,10 +398,8 @@ void iqk_openai_experts(struct ggml_tensor * topk, struct ggml_tensor * softmax,
     auto probs    = topk->src[0];
 
     auto nrows = ggml_nrows(probs);
-    auto npt   = (nrows + nth - 1)/nth;
-    auto first = npt*ith;
-    auto last  = std::min(first + npt, nrows);
-    if (last <= first) return;
+    auto range = split_work_range(nrows, ith, nth);
+    if (range.last <= range.first) return;
 
     int ne00 = probs->ne[0];
     int ne0  = softmax->ne[0];
@@ -404,7 +410,7 @@ void iqk_openai_experts(struct ggml_tensor * topk, struct ggml_tensor * softmax,
     size_t work_size = ne00;
     auto& aux = get_work_buffer(work_size);
 
-    for (int ir = first; ir < last; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         auto data = (const float *)((const char *)probs->data + ir*probs->nb[1]);
         for (int j = 0; j < ne00; ++j) aux[j] = { data[j], j };
         if (ne0 < ne00) {
@@ -442,9 +448,8 @@ void iqk_mul_multi_add(struct ggml_tensor * dst, int ith, int nth) {
     GGML_ASSERT(src1->ne[0] == 1);
 
     int nrows = dst->ne[1];
-    int npt   = (nrows + nth - 1)/nth;
-    int first = ith*npt;
-    int last  = std::min(nrows, first + npt);
+    auto range = split_work_range(nrows, ith, nth);
+    if (range.last <= range.first) return;
 
     int ne01 = src0->ne[1];
     int ne00 = src0->ne[0];
@@ -458,7 +463,7 @@ void iqk_mul_multi_add(struct ggml_tensor * dst, int ith, int nth) {
 
         auto cids = (const char *)src3->data;
         auto scales = (const float *)src2->data;
-        for (int ir = first; ir < last; ++ir) {
+        for (int ir = range.first; ir < range.last; ++ir) {
             auto c0 = (const char *)src0->data + ir*src0->nb[2];
             auto c1 = (const char *)src1->data + ir*src1->nb[2];
             auto cy = (      char *)dst->data + ir* dst->nb[1];
@@ -482,7 +487,7 @@ void iqk_mul_multi_add(struct ggml_tensor * dst, int ith, int nth) {
 
     }
 
-    for (int ir = first; ir < last; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         auto c0 = (const char *)src0->data + ir*src0->nb[2];
         auto c1 = (const char *)src1->data + ir*src1->nb[2];
         auto cy = (      char *)dst->data + ir* dst->nb[1];
@@ -529,12 +534,11 @@ void iqk_hadamard(struct ggml_tensor * dst, int ith, int nth) {
 
     int nc = dst->ne[0]/nh;
     int nr = ggml_nrows(dst) * nc;
-    int npt = (nr + nth - 1)/nth;
-    int first = npt*ith;
-    int last  = std::min(first + npt, nr);
+    auto range = split_work_range(nr, ith, nth);
+    if (range.last <= range.first) return;
 
     if (src->type == GGML_TYPE_F32) {
-        for (int ir = first; ir < last; ++ir) {
+        for (int ir = range.first; ir < range.last; ++ir) {
             int i3 = ir / (dst->ne[1] * dst->ne[2] * nc);
             int i2 = (ir - i3*dst->ne[1] * dst->ne[2] * nc)/(dst->ne[1] * nc);
             int i1 = (ir - i3*dst->ne[1] * dst->ne[2] * nc - i2*dst->ne[1]*nc)/nc;
@@ -554,7 +558,7 @@ void iqk_hadamard(struct ggml_tensor * dst, int ith, int nth) {
     const size_t type_size = traits.type_size;
     GGML_ASSERT(blck_size > 0 && (nh % blck_size == 0 || blck_size % nh == 0));
 
-    for (int ir = first; ir < last; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         int i3 = ir / (dst->ne[1] * dst->ne[2] * nc);
         int i2 = (ir - i3*dst->ne[1] * dst->ne[2] * nc)/(dst->ne[1] * nc);
         int i1 = (ir - i3*dst->ne[1] * dst->ne[2] * nc - i2*dst->ne[1]*nc)/nc;
@@ -623,12 +627,10 @@ bool iqk_ssm_conv4(int nr, int nc, int nt,
         return false;
     }
     int nr16 = nr/16;
-    int dr16 = (nr16 + nth - 1)/nth;
-    int ir0  = ith*dr16;
-    int ir1  = std::min(nr16, ir0 + dr16);
+    auto range = split_work_range(nr16, ith, nth);
     __m256 vs[8], vc[8];
     float aux[64];
-    for (int ir = ir0; ir < ir1; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         auto x  = dst_silu == nullptr ? dst + 16*ir : dst_silu + 16*ir;
         auto s  = dst   + 16*ir*nb21/sizeof(float) + nr*nt;
         auto s0 = s0_in + 16*ir*nb01/sizeof(float); // {d_conv - 1, d_inner, n_kv}
@@ -691,12 +693,10 @@ bool iqk_ssm_conv4(int nr, int nc, int nt,
         return false;
     }
     int nr16 = nr/16;
-    int dr16 = (nr16 + nth - 1)/nth;
-    int ir0  = ith*dr16;
-    int ir1  = std::min(nr16, ir0 + dr16);
+    auto range = split_work_range(nr16, ith, nth);
     float32x4x2_t vs[8], vc[8];
     float aux[64];
-    for (int ir = ir0; ir < ir1; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         auto x  = dst_silu == nullptr ? dst + 16*ir : dst_silu + 16*ir;
         auto s  = dst   + 16*ir*nb21/sizeof(float) + nr*nt;
         auto s0 = s0_in + 16*ir*nb01/sizeof(float); // {d_conv - 1, d_inner, n_kv}
@@ -933,16 +933,15 @@ void iqk_rms_rms_add(struct ggml_tensor * dst, int ith, int nth) {
     GGML_ASSERT(eps > 0.0f);
 
     int nrows = ggml_nrows(dst);
-    int nrows_per_thread = (nrows + nth - 1)/nth;
-    int first = ith*nrows_per_thread;
-    int last  = MIN(nrows, first + nrows_per_thread);
+    auto range = split_work_range(nrows, ith, nth);
+    if (range.last <= range.first) return;
 
     const float * c1 = (float *) src1->data;
     const float * c2 = (float *) src3->data;
 
     const int ncols = dst->ne[0];
 
-    for (int ir = first; ir < last; ++ir) {
+    for (int ir = range.first; ir < range.last; ++ir) {
         float * y = (float *)dst->data + ir*ncols;
 
         float sum1 = 0, sum2 = 0;
