@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-this=$(realpath "$0"); readonly this
-repo_root=$(realpath "$(dirname "$(dirname "$this")")"); readonly repo_root
+script_path="$0"
+if [[ "$script_path" != /* ]]; then
+    script_path="$PWD/$script_path"
+fi
+this="$(cd "$(dirname "$script_path")" && pwd -P)/$(basename "$script_path")"; readonly this
+repo_root="$(cd "$(dirname "$(dirname "$this")")" && pwd -P)"; readonly repo_root
 
 usage() {
     cat <<EOF
@@ -104,6 +108,10 @@ fi
 out_parent="$repo_root/tmp/cpu-bench"
 mkdir -p "$out_parent"
 out_dir="$(mktemp -d "$out_parent/run-XXXXXX")"
+if [[ -z "$out_dir" || ! -d "$out_dir" ]]; then
+    echo "Failed to create output directory in $out_parent" >&2
+    exit 1
+fi
 
 cpu_cores="$(get_cpu_cores)"
 if [[ -z "$threads" ]]; then
@@ -145,6 +153,10 @@ if [[ "$run_callgrind" -eq 1 ]]; then
         exit 1
     fi
     valgrind --tool=callgrind --callgrind-out-file="$out_dir/callgrind.out" "$bench_bin" "${bench_args[@]}" 2>&1 | tee "$out_dir/callgrind.log"
+    if [[ ! -f "$out_dir/callgrind.out" ]]; then
+        echo "callgrind did not produce $out_dir/callgrind.out" >&2
+        exit 1
+    fi
 fi
 
 echo "Done."
