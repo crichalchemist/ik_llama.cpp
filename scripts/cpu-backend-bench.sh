@@ -159,4 +159,4 @@ if [[ "$run_callgrind" -eq 1 ]]; then
     fi
 fi
 
-echo "Done."
+echo "Done. Results: $out_dir"
