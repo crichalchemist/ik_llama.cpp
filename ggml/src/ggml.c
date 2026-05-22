@@ -17044,7 +17044,18 @@ static int ggml_compute_forward_mul_mat(
     }
 #endif
 
-    if (src1->type != vec_dot_type) {
+    bool reuse_prepacked_src1 = false;
+    if (src1->type != vec_dot_type && cgraph && node_n > 0) {
+        const struct ggml_tensor * prev = cgraph->nodes[node_n - 1];
+        if (prev->op == GGML_OP_MUL_MAT &&
+            prev->src[1] == src1 &&
+            prev->src[0]->type == src0->type &&
+            type_traits[prev->src[0]->type].vec_dot_type == vec_dot_type) {
+            reuse_prepacked_src1 = true;
+        }
+    }
+
+    if (src1->type != vec_dot_type && !reuse_prepacked_src1) {
         char * wdata = params->wdata;
 
 #if IK_PRINT_TIMING
