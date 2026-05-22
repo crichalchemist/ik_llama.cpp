@@ -1395,8 +1395,30 @@ static bool ggml_backend_sched_buffer_supported(ggml_backend_sched_t sched, stru
     return buft != NULL && ggml_backend_supports_buft(sched->backends[backend_id], buft);
 }
 
-static void ggml_backend_sched_set_if_supported(ggml_backend_sched_t sched, struct ggml_tensor * node, int cur_backend_id, int * node_backend_id) {
-    if (ggml_backend_supports_op(sched->backends[cur_backend_id], node)) {
+static bool ggml_backend_sched_supports_op_cached(
+        ggml_backend_sched_t sched,
+        struct ggml_tensor * node,
+        int node_id,
+        int backend_id,
+        std::vector<int8_t> & support_cache) {
+    GGML_ASSERT(node_id >= 0);
+    GGML_ASSERT(backend_id >= 0 && backend_id < sched->n_backends);
+    const int cache_idx = node_id*sched->n_backends + backend_id;
+    int8_t & cached = support_cache[cache_idx];
+    if (cached < 0) {
+        cached = ggml_backend_supports_op(sched->backends[backend_id], node) ? 1 : 0;
+    }
+    return cached != 0;
+}
+
+static void ggml_backend_sched_set_if_supported(
+        ggml_backend_sched_t sched,
+        struct ggml_tensor * node,
+        int node_id,
+        int cur_backend_id,
+        int * node_backend_id,
+        std::vector<int8_t> & support_cache) {
+    if (ggml_backend_sched_supports_op_cached(sched, node, node_id, cur_backend_id, support_cache)) {
         *node_backend_id = cur_backend_id;
         SET_CAUSE(node, "2.sup");
     }
@@ -1422,6 +1444,8 @@ static void ggml_backend_sched_split_graph(ggml_backend_sched_t sched, struct gg
     if (sched->ctx == NULL) {
         GGML_ABORT("%s: failed to initialize context\n", __func__);
     }
+
+    std::vector<int8_t> support_cache(graph->n_nodes*sched->n_backends, -1);
 
     // pass 1: assign backends to ops with pre-allocated inputs
     for (int i = 0; i < graph->n_leafs; i++) {
@@ -1531,7 +1555,7 @@ static void ggml_backend_sched_split_graph(ggml_backend_sched_t sched, struct gg
                 }
             } else if (cur_backend_id != -1) {
                 //printf("(u1) invoking ggml_backend_sched_set_if_supported for node %d, %s with cur_backend_id = %d, node_backend_id = %d\n", i, node->name, cur_backend_id, *node_backend_id);
-                ggml_backend_sched_set_if_supported(sched, node, cur_backend_id, node_backend_id);
+                ggml_backend_sched_set_if_supported(sched, node, i, cur_backend_id, node_backend_id, support_cache);
             }
         }
     }
@@ -1553,7 +1577,7 @@ static void ggml_backend_sched_split_graph(ggml_backend_sched_t sched, struct gg
                 }
             } else if (cur_backend_id != -1) {
                 //printf("(d1) invoking ggml_backend_sched_set_if_supported for node %d, %s with cur_backend_id = %d, node_backend_id = %d\n", i, node->name, cur_backend_id, *node_backend_id);
-                ggml_backend_sched_set_if_supported(sched, node, cur_backend_id, node_backend_id);
+                ggml_backend_sched_set_if_supported(sched, node, i, cur_backend_id, node_backend_id, support_cache);
             }
         }
     }
@@ -1570,7 +1594,7 @@ static void ggml_backend_sched_split_graph(ggml_backend_sched_t sched, struct gg
                 cur_backend_id = *node_backend_id;
             } else if (cur_backend_id != -1) {
                 //printf("(u2) invoking ggml_backend_sched_set_if_supported for node %d, %s with cur_backend_id = %d, node_backend_id = %d\n", i, node->name, cur_backend_id, *node_backend_id);
-                ggml_backend_sched_set_if_supported(sched, node, cur_backend_id, node_backend_id);
+                ggml_backend_sched_set_if_supported(sched, node, i, cur_backend_id, node_backend_id, support_cache);
             }
         }
     }
@@ -1587,7 +1611,7 @@ static void ggml_backend_sched_split_graph(ggml_backend_sched_t sched, struct gg
                 cur_backend_id = *node_backend_id;
             } else if (cur_backend_id != -1) {
                 //printf("(d2) invoking ggml_backend_sched_set_if_supported for node %d, %s with cur_backend_id = %d, node_backend_id = %d\n", i, node->name, cur_backend_id, *node_backend_id);
-                ggml_backend_sched_set_if_supported(sched, node, cur_backend_id, node_backend_id);
+                ggml_backend_sched_set_if_supported(sched, node, i, cur_backend_id, node_backend_id, support_cache);
             }
         }
     }
