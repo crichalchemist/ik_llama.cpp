@@ -197,6 +197,22 @@ if [[ "${#matrix_entries[@]}" -eq 0 ]]; then
     exit 1
 fi
 
+first_entry="${matrix_entries[0]}"
+first_pp="${first_entry%%:*}"
+first_tg="${first_entry##*:}"
+if [[ -z "$first_pp" || -z "$first_tg" || "$first_pp" == "$first_entry" || ! "$first_pp" =~ ^[0-9]+$ || ! "$first_tg" =~ ^[0-9]+$ ]]; then
+    echo "Invalid first matrix entry '$first_entry' (expected P:G)." >&2
+    exit 1
+fi
+
+primary_run_args=(
+    -m "$model"
+    -ngl 0
+    -t "$threads"
+    -p "$first_pp"
+    -n "$first_tg"
+)
+
 profiled=0
 
 for entry in "${matrix_entries[@]}"; do
@@ -265,7 +281,7 @@ if [[ "$run_perf" -eq 1 ]]; then
         echo "perf requested but not installed." >&2
         exit 1
     fi
-    perf record -o "$out_dir/perf.data" -g -- "$bench_bin" "${bench_args[@]}" 2>&1 | tee "$out_dir/perf-record.log"
+    perf record -o "$out_dir/perf.data" -g -- "$bench_bin" "${primary_run_args[@]}" 2>&1 | tee "$out_dir/perf-record.log"
     if [[ ! -f "$out_dir/perf.data" ]]; then
         echo "perf did not produce $out_dir/perf.data" >&2
         exit 1
@@ -278,7 +294,7 @@ if [[ "$run_callgrind" -eq 1 ]]; then
         echo "callgrind requested but valgrind is not installed." >&2
         exit 1
     fi
-    valgrind --tool=callgrind --callgrind-out-file="$out_dir/callgrind.out" "$bench_bin" "${bench_args[@]}" 2>&1 | tee "$out_dir/callgrind.log"
+    valgrind --tool=callgrind --callgrind-out-file="$out_dir/callgrind.out" "$bench_bin" "${primary_run_args[@]}" 2>&1 | tee "$out_dir/callgrind.log"
     if [[ ! -f "$out_dir/callgrind.out" ]]; then
         echo "callgrind did not produce $out_dir/callgrind.out" >&2
         exit 1

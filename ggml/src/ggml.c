@@ -16961,6 +16961,7 @@ static void ggml_compute_forward_mul_mat_one_chunk(
                 //    vec_dot(ne00, &dst_col[ir0], src0_row + ir0*nb01, src1_col);
                 //}
 
+                // hoist block-end bounds once per tile to avoid repeated MIN() in inner loops
                 const int64_t iir0_end = MIN(iir0 + blck_0, ir0_end);
                 if (num_rows_per_vec_dot == 1) {
                     for (int64_t ir0 = iir0; ir0 < iir0_end; ++ir0) {
