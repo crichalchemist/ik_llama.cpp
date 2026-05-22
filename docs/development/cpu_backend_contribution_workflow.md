@@ -39,13 +39,24 @@ Use reproducible CPU-only runs:
 
 ```bash
 cd <repo-root>
-./scripts/cpu-backend-bench.sh --model /absolute/path/to/model.gguf
+./scripts/cpu-backend-bench.sh \
+  --model /absolute/path/to/model.gguf \
+  --matrix 512:0,0:128 \
+  --cpu-util \
+  --op-profile
 ```
 
 The helper script can:
 
-- Run `llama-bench` in CPU-only mode.
-- Optionally collect `perf` samples.
+- Run `llama-bench` in CPU-only mode over a fixed prefill/decode matrix.
+- Write a reproducible `summary.tsv` with prompt/decode scenario, tok/s, and CPU utilization.
+- Optionally collect `perf` samples and extract hotspot shares for:
+  - `ggml_compute_forward_mul_mat*`
+  - `ggml_compute_forward_flash_attn_ext_f16`
+  - `ggml_compute_forward_rope_f32/f16`
+  - `ggml_compute_forward_norm_f32` / `ggml_compute_forward_fused_norm_f32`
+  - `ggml_compute_forward_rms_norm_f32`
+  - `ggml_backend_sched_split_graph`
 - Optionally collect valgrind callgrind output.
 
 ## 4) Implement CPU kernel improvements
