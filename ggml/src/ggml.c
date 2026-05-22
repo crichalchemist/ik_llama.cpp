@@ -16998,6 +16998,10 @@ static int ggml_compute_forward_mul_mat(
     const struct ggml_tensor * src0 = dst->src[0];
     const struct ggml_tensor * src1 = dst->src[1];
 
+    if (cgraph) {
+        GGML_ASSERT(node_n >= 0 && node_n < cgraph->n_nodes);
+    }
+
     GGML_TENSOR_BINARY_OP_LOCALS
 
     const int ith = params->ith;
