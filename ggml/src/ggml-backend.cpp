@@ -1445,6 +1445,8 @@ static void ggml_backend_sched_split_graph(ggml_backend_sched_t sched, struct gg
         GGML_ABORT("%s: failed to initialize context\n", __func__);
     }
 
+    std::vector<int8_t> support_cache(graph->n_nodes*sched->n_backends, -1);
+
     // pass 1: assign backends to ops with pre-allocated inputs
     for (int i = 0; i < graph->n_leafs; i++) {
         struct ggml_tensor * leaf = graph->leafs[i];
@@ -2941,4 +2943,3 @@ bool ggml_backend_compare_graph_backend(ggml_backend_t backend1, ggml_backend_t 
 
     return true;
 }
-    std::vector<int8_t> support_cache(graph->n_nodes*sched->n_backends, -1);

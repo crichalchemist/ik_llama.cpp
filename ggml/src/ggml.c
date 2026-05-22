@@ -19898,12 +19898,12 @@ static inline void ggml_rope_cache_fill(
         const int64_t i2,
         const int64_t ne2,
         const int32_t * pos,
-        const int sections[4],
+        int sections[4],
         const bool is_imrope,
         const bool is_vision,
         const float freq_scale,
         const float * freq_factors,
-        const float corr_dims[2],
+        float corr_dims[2],
         const int64_t ne0,
         const float ext_factor,
         const float attn_factor,
@@ -20091,12 +20091,12 @@ static inline void ggml_rope_cache_fill(
         const int64_t i2,
         const int64_t ne2,
         const int32_t * pos,
-        const int sections[4],
+        int sections[4],
         const bool is_imrope,
         const bool is_vision,
         const float freq_scale,
         const float * freq_factors,
-        const float corr_dims[2],
+        float corr_dims[2],
         const int64_t ne0,
         const float ext_factor,
         const float attn_factor,
@@ -22044,7 +22044,7 @@ static void ggml_compute_forward_flash_attn_ext_f16(
         }
 
         if (sinks) {
-            const float s = ((float *)((char *) sinks->data))[h];
+            const float s = ((float *)((char *) sinks->data))[iq2];
 
             float ms = 1.0f;
             float vs = 1.0f;
